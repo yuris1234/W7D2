@@ -11,16 +11,15 @@
 #
 class User < ApplicationRecord
     before_validation :ensure_session_token
-    validates :email, :session_token, presence: true, unique: true 
+    validates :email, :session_token, presence: true, uniqueness: true 
     validates :password_digest, presence: true
     validates :session_token, uniqueness: {scope: :email}
     validates :password, length: {minimum: 6, allow_nil: true}
-    after_validation :ensure_session_token
 
     attr_reader :password
 
     def ensure_session_token # ensures that session token exists?
-        self.session_token ||= session[:session_token]
+        self.session_token ||= generate_unique_session_token
     end
 
     def reset_session_token! # resets session token of user to logout, also so that session token of past sessions is not the same
@@ -35,8 +34,17 @@ class User < ApplicationRecord
     end
 
     def is_password?(password)
-        password_check = BCrypt::Password.create(password)
-        password_check.is_password?(password)
+        password_obj = BCrypt::Password.new(self.password_digest)
+        password_obj.is_password?(password)
+    end
+
+    def self.find_by_credentials(email, password)
+        user = User.find_by(email: email)
+        if user&.is_password?(password)
+            user 
+        else
+            nil
+        end
     end
 
     private
